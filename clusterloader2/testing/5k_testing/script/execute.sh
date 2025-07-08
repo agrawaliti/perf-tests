@@ -35,7 +35,7 @@ mkdir -p "$REPORT_DIR"
 
 # Optionally dynamically find clusterloader binary if it's co-located, otherwise fallback
 # You can change this line if your clusterloader binary is elsewhere
-CLUSTERLOADER_PATH="/home/itiagrawal/Projects/Cilium/perf-tests/clusterloader2/clusterloader"
+CLUSTERLOADER_PATH="/home/itiagrawal/Projects/Cilium/cl2/perf-tests/clusterloader2/clusterloader"
 
 # Print information before executing
 echo "Starting test with:"
