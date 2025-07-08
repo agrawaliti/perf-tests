@@ -1,0 +1,12 @@
+# Main scaling parameters - start with small values for testing
+CL2_NODES: 10
+CL2_PODS_PER_NODE: 40
+CL2_REPLICAS_PER_DEPLOYMENT: 20
+CL2_QPS: 100
+CL2_DEPLOYMENT_STRATEGY: "RollingUpdate"
+
+# Use smaller values for testing
+CL2_NAMESPACES: 1
+CL2_LATENCY_POD_CPU: 10
+CL2_LATENCY_POD_MEMORY: 50
+CL2_GROUP_NAME: "pod-scale"

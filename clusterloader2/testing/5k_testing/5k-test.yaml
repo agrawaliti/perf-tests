@@ -1,0 +1,98 @@
+{{$NODES := DefaultParam .CL2_NODES 5000}}
+{{$PODS_PER_NODE := DefaultParam .CL2_PODS_PER_NODE 40}}
+{{$REPLICAS_PER_DEPLOYMENT := DefaultParam .CL2_REPLICAS_PER_DEPLOYMENT 20}}
+{{$QPS := DefaultParam .CL2_QPS 100}}
+{{$DEPLOYMENT_STRATEGY := DefaultParam .CL2_DEPLOYMENT_STRATEGY "RollingUpdate"}}
+{{$TOTAL_PODS := MultiplyInt $NODES $PODS_PER_NODE}}
+{{$DEPLOYMENTS := DivideInt $TOTAL_PODS $REPLICAS_PER_DEPLOYMENT}}
+{{$NAMESPACES := DefaultParam .CL2_NAMESPACES 25}}
+{{$DEPLOYMENTS_PER_NAMESPACE := DivideInt $DEPLOYMENTS $NAMESPACES}}
+{{$DEPLOYMENTS_PER_NAMESPACE := IfThenElse (eq $DEPLOYMENTS_PER_NAMESPACE 0) 10 $DEPLOYMENTS_PER_NAMESPACE}}
+
+{{$latencyPodCpu := DefaultParam .CL2_LATENCY_POD_CPU 10}}
+{{$latencyPodMemory := DefaultParam .CL2_LATENCY_POD_MEMORY 50}}
+{{$groupName := DefaultParam .CL2_GROUP_NAME "pod-scale"}}
+{{$podImage := DefaultParam .CL2_LATENCY_POD_IMAGE "registry.k8s.io/pause:3.9"}}
+{{$namespacePrefix := DefaultParam .CL2_NAMESPACE_PREFIX "podscale"}}
+{{$operationTimeout := DefaultParam .CL2_OPERATION_TIMEOUT "30m"}}
+
+# Debug output
+{{$debug := printf "NODES=%v PODS_PER_NODE=%v TOTAL_PODS=%v REPLICAS_PER_DEPLOYMENT=%v DEPLOYMENTS=%v NAMESPACES=%v DEPLOYMENTS_PER_NAMESPACE=%v GROUP=%v USER=agrawalitiin TIME=2025-06-27 15:18:25" $NODES $PODS_PER_NODE $TOTAL_PODS $REPLICAS_PER_DEPLOYMENT $DEPLOYMENTS $NAMESPACES $DEPLOYMENTS_PER_NAMESPACE $groupName}}
+
+name: pod-startup-latency-test
+
+namespace:
+  number: {{$NAMESPACES}}
+  prefix: {{$namespacePrefix}}
+  deleteStaleNamespaces: true
+  deleteAutomanagedNamespaces: true
+  enableExistingNamespaces: false
+
+tuningSets:
+  - name: UniformQPS
+    qpsLoad:
+      qps: {{$QPS}}
+  - name: RandomizedSaturationTimeLimited
+    RandomizedTimeLimitedLoad:
+      timeLimit: 600s
+  - name: RandomizedDeletionTimeLimited
+    RandomizedTimeLimitedLoad:
+      timeLimit: 600s
+
+steps:
+# Debug step - print configuration values
+- name: Debug Output
+  measurements:
+  - Identifier: DebugMeasurement
+    Method: Sleep
+    Params:
+      action: start
+      duration: 100ms
+      debugInfo: "{{$debug}}"
+
+- module:
+    path: ./measurements.yaml
+    params:
+      action: start
+      group: {{$groupName}}
+
+# Create deployments using the module
+- module:
+    path: ./reconcile-objects.yaml
+    params:
+      actionName: "create"
+      namespaces: {{$NAMESPACES}}
+      tuningSet: UniformQPS
+      operationTimeout: {{$operationTimeout}}
+      replicasPerDeployment: {{$REPLICAS_PER_DEPLOYMENT}}
+      deploymentsPerNamespace: {{$DEPLOYMENTS_PER_NAMESPACE}}
+      CpuRequest: "{{$latencyPodCpu}}m" 
+      MemoryRequest: "{{$latencyPodMemory}}M"
+      Group: {{$groupName}}
+      deploymentLabel: "start"
+      Image: {{$podImage}}
+      DeploymentStrategy: {{$DEPLOYMENT_STRATEGY}}
+
+
+# Delete deployments using the module
+- module:
+    path: ./reconcile-objects.yaml
+    params:
+      actionName: "delete"
+      namespaces: {{$NAMESPACES}}
+      tuningSet: RandomizedDeletionTimeLimited
+      operationTimeout: {{$operationTimeout}}
+      replicasPerDeployment: 0  # Set to 0 for deletion
+      deploymentsPerNamespace: 0  # Set to 0 for deletion
+      CpuRequest: "{{$latencyPodCpu}}m"
+      MemoryRequest: "{{$latencyPodMemory}}M"
+      Group: {{$groupName}}
+      deploymentLabel: "stop"
+      Image: {{$podImage}}
+      DeploymentStrategy: {{$DEPLOYMENT_STRATEGY}}
+
+- module:
+    path: ./measurements.yaml
+    params:
+      action: gather
+      group: {{$groupName}}
