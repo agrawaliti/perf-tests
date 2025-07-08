@@ -35,7 +35,7 @@ mkdir -p "$REPORT_DIR"
 
 # Optionally dynamically find clusterloader binary if it's co-located, otherwise fallback
 # You can change this line if your clusterloader binary is elsewhere
-CLUSTERLOADER_PATH="/home/itiagrawal/Projects/Cilium/cl2/perf-tests/clusterloader2/clusterloader"
+CLUSTERLOADER_PATH="/home/itiagrawal/Projects/Cilium/perf-tests/clusterloader2/clusterloader"
 
 # Print information before executing
 echo "Starting test with:"
@@ -57,7 +57,7 @@ CL2_POD_STARTUP_LATENCY_THRESHOLD: "90s"
 CL2_NAMESPACE_PREFIX: "podscale"
 EOF
 
-"$CLUSTERLOADER_PATH" --provider=aks --kubeconfig="${HOME}/.kube/config"\
+"$CLUSTERLOADER_PATH" --provider=aks --kubeconfig=/home/itiagrawal/.kube/config\
  --testconfig="$TESTCONFIG" --v=5 \
  --enable-prometheus-server=True \
  --prometheus-storage-class-provisioner=disk.csi.azure.com \
