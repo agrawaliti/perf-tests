@@ -7,6 +7,17 @@ if [ $# -lt 3 ]; then
   exit 1
 fi
 
+# Resolve this script's directory, supporting symlinks
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+
+# The base directory is one level up from script/
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Paths relative to BASE_DIR
+SCALE_OVERRIDES="${BASE_DIR}/scale-overrides.yaml"
+LOGS_BASE="${BASE_DIR}/logs"
+TESTCONFIG="${BASE_DIR}/5k-test.yaml"
+
 # Get parameters
 NAMESPACE_COUNT=$1
 NODE_COUNT=$2
@@ -15,20 +26,16 @@ REPLICA_COUNT=$3
 # Generate timestamp in YYYYMMDD-HHMMSS format
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
-# Base logs directory
-LOGS_BASE="/home/itiagrawal/Projects/Cilium/perf-tests/clusterloader2/testing/5k_testing/logs"
 mkdir -p "$LOGS_BASE"
 
-# Create the log filename with timestamp + parameters
 LOG_FILENAME="logs-${TIMESTAMP}-${NAMESPACE_COUNT}ns-${NODE_COUNT}nodes-${REPLICA_COUNT}replica.txt"
 LOG_PATH="${LOGS_BASE}/${LOG_FILENAME}"
-
-# Create a matching report directory (strip .txt)
 REPORT_DIR="${LOGS_BASE}/${LOG_FILENAME%.txt}"
 mkdir -p "$REPORT_DIR"
 
-# Set the correct path to clusterloader
-CLUSTERLOADER_PATH="/home/itiagrawal/Projects/Cilium/perf-tests/clusterloader2/clusterloader"
+# Optionally dynamically find clusterloader binary if it's co-located, otherwise fallback
+# You can change this line if your clusterloader binary is elsewhere
+CLUSTERLOADER_PATH="${CLUSTERLOADER_PATH:-${BASE_DIR}/../../../../clusterloader2/clusterloader}"
 
 # Print information before executing
 echo "Starting test with:"
@@ -37,17 +44,29 @@ echo "- Nodes: ${NODE_COUNT}"
 echo "- Replicas per deployment: ${REPLICA_COUNT}"
 echo "- Log file: ${LOG_PATH}"
 echo "- Report directory: ${REPORT_DIR}"
+echo "- Test config: ${TESTCONFIG}"
+echo "- Scale overrides: ${SCALE_OVERRIDES}"
 echo "- Timestamp: ${TIMESTAMP}"
 
-# Execute the clusterloader command with the correct path
-"$CLUSTERLOADER_PATH" --provider=aks --kubeconfig=/home/itiagrawal/.kube/config \
- --testconfig=/home/itiagrawal/Projects/Cilium/cl2/perf-tests/clusterloader2/testing/5k_testing/5k-test.yaml --v=5 \
+# Write overrides file
+cat > "$SCALE_OVERRIDES" << EOF
+CL2_NAMESPACES: $NAMESPACE_COUNT
+CL2_NODES: $NODE_COUNT
+CL2_REPLICAS_PER_DEPLOYMENT: $REPLICA_COUNT
+CL2_POD_STARTUP_LATENCY_THRESHOLD: "90s"
+CL2_NAMESPACE_PREFIX: "podscale"
+EOF
+
+"$CLUSTERLOADER_PATH" --provider=aks --kubeconfig=~/.kube/config \
+ --testconfig="$TESTCONFIG" --v=5 \
  --enable-prometheus-server=True \
  --prometheus-storage-class-provisioner=disk.csi.azure.com \
  --prometheus-pvc-storage-class=default \
  --report-dir="${REPORT_DIR}" \
- --testoverrides=/home/itiagrawal/Projects/Cilium/cl2/perf-tests/clusterloader2/testing/5k_testing/scale-overrides.yaml \
+ --testoverrides="$SCALE_OVERRIDES" \
  2>&1 | tee "${LOG_PATH}"
 
 echo "Test completed. Log saved to: ${LOG_PATH}"
 echo "Report saved to: ${REPORT_DIR}"
+
+sh cleanup_report_dir.sh "$REPORT_DIR"
