@@ -14,7 +14,7 @@
 {{$groupName := DefaultParam .CL2_GROUP_NAME "pod-scale"}}
 {{$podImage := DefaultParam .CL2_LATENCY_POD_IMAGE "registry.k8s.io/pause:3.9"}}
 {{$namespacePrefix := DefaultParam .CL2_NAMESPACE_PREFIX "podscale"}}
-{{$operationTimeout := DefaultParam .CL2_OPERATION_TIMEOUT "30m"}}
+{{$operationTimeout := DefaultParam .CL2_OPERATION_TIMEOUT "60m"}}
 
 # Debug output
 {{$debug := printf "NODES=%v PODS_PER_NODE=%v TOTAL_PODS=%v REPLICAS_PER_DEPLOYMENT=%v DEPLOYMENTS=%v NAMESPACES=%v DEPLOYMENTS_PER_NAMESPACE=%v GROUP=%v USER=agrawalitiin TIME=2025-06-27 15:18:25" $NODES $PODS_PER_NODE $TOTAL_PODS $REPLICAS_PER_DEPLOYMENT $DEPLOYMENTS $NAMESPACES $DEPLOYMENTS_PER_NAMESPACE $groupName}}
