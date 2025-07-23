@@ -70,3 +70,5 @@ echo "Test completed. Log saved to: ${LOG_PATH}"
 echo "Report saved to: ${REPORT_DIR}"
 
 sh cleanup_report_dir.sh "$REPORT_DIR"
+
+sh extract_scale_time.sh "$LOG_PATH"

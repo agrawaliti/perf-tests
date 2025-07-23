@@ -1,0 +1,610 @@
+name: pod-startup-latency-test
+automanagednamespaces: 0
+namespace:
+  number: 100
+  prefix: podscale
+  deletestalenamespaces: true
+  deleteautomanagednamespaces: true
+  enableexistingnamespaces: false
+  deletenamespacetimeout: 600000000000
+steps:
+- phases: []
+  measurements:
+  - method: Sleep
+    params:
+      action: start
+      debugInfo: NODES=5000 PODS_PER_NODE=40 TOTAL_PODS=200000 REPLICAS_PER_DEPLOYMENT=100
+        DEPLOYMENTS=2000 NAMESPACES=100 DEPLOYMENTS_PER_NAMESPACE=20 GROUP=pod-scale
+        USER=agrawalitiin TIME=2025-06-27 15:18:25
+      duration: 100ms
+    identifier: DebugMeasurement
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: Debug Output
+- phases: []
+  measurements:
+  - method: APIResponsivenessPrometheus
+    params:
+      action: start
+      enableViolations: true
+      useSimpleLatencyQuery: true
+    identifier: APIResponsivenessPrometheus
+    instances: []
+  - method: PodStartupLatency
+    params:
+      action: start
+      labelSelector: group = pod-scale
+      threshold: 90s
+    identifier: PodStartupLatency
+    instances: []
+  - method: InClusterNetworkLatency
+    params:
+      action: start
+      checkProbesReadyTimeout: 15m
+      pingSleepDuration: 1s
+      replicasPerProbe: 52
+      threshold: 0s
+    identifier: InClusterNetworkLatency
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      dimensions:
+      - resource
+      metricName: Terminated Watches
+      metricVersion: v1
+      queries:
+      - name: Terminated watches
+        query: sum(increase(apiserver_terminated_watchers_total[%v:])) by (resource)
+      unit: count
+    identifier: TerminatedWatchesMetrics
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      enableViolations: true
+      metricName: Apiserver Average CPU Usage
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: quantile(0.99, avg_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      - name: Perc90
+        query: quantile(0.90, avg_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      - name: Perc50
+        query: quantile(0.50, avg_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      unit: cpu
+    identifier: ApiserverAvgCPUUsage
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      enableViolations: true
+      metricName: Apiserver Max CPU Usage
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: quantile(0.99, max_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      - name: Perc90
+        query: quantile(0.90, max_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      - name: Perc50
+        query: quantile(0.50, max_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      unit: cpu
+    identifier: ApiserverMaxCPUUsage
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      enableViolations: true
+      metricName: Apiserver Avg Memory Usage
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: quantile(0.99, avg_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      - name: Perc90
+        query: quantile(0.90, avg_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      - name: Perc50
+        query: quantile(0.5, avg_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      unit: MB
+    identifier: ApiserverAvgMemUsage
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      enableViolations: true
+      metricName: Apiserver Max Memory Usage
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: quantile(0.99, max_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      - name: Perc90
+        query: quantile(0.90, max_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      - name: Perc50
+        query: quantile(0.5, max_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      unit: MB
+    identifier: ApiserverMaxMemUsage
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      enableViolations: true
+      metricName: Current API requests inflight
+      metricVersion: v1
+      queries:
+      - name: data
+        query: sum(rate(apiserver_current_inflight_requests[%v:]))
+      unit: count
+    identifier: apiserver_current_inflight_requests
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      dimensions:
+      - resource
+      enableViolations: true
+      metricName: Apiserver watch events total per resource
+      metricVersion: v1
+      queries:
+      - name: data
+        query: sum(rate(apiserver_watch_events_total[%v:])) by (resource)
+      unit: count
+    identifier: apiserver_watch_events_total
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      dimensions:
+      - resource
+      enableViolations: true
+      metricName: Api server watch duration seconds
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: histogram_quantile(0.99, sum(rate(apiserver_watch_duration_seconds_bucket[%v:]))
+          by (le, resource))
+      - name: Perc90
+        query: histogram_quantile(0.90, sum(rate(apiserver_watch_duration_seconds_bucket[%v:]))
+          by (le, resource))
+      - name: Perc50
+        query: histogram_quantile(0.50, sum(rate(apiserver_watch_duration_seconds_bucket[%v:]))
+          by (le, resource))
+      unit: s
+    identifier: apiserver_watch_duration_seconds_bucket
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      enableViolations: true
+      metricName: ETCD disk backend commit duration
+      metricVersion: v1
+      queries:
+      - name: P99
+        query: histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[%v:]))
+          by (le))
+      - name: P90
+        query: histogram_quantile(0.90, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[%v:]))
+          by (le))
+      - name: P50
+        query: histogram_quantile(0.50, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[%v:]))
+          by (le))
+      unit: rate
+    identifier: etcd_disk_backend_commit_duration_seconds
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      enableViolations: true
+      metricName: data
+      metricVersion: v1
+      queries:
+      - name: data
+        query: deriv(etcd_debugging_mvcc_db_total_size_in_bytes[5m])
+      unit: rate
+    identifier: etcd_debugging_mvcc_db_total_size_in_bytes
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      enableViolations: true
+      metricName: ETCD number of uncommited proposals rate change
+      metricVersion: v1
+      queries:
+      - name: data
+        query: deriv(etcd_server_proposals_pending[%v:])
+      unit: rate
+    identifier: etcd_server_proposals_pending
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      dimensions:
+      - resource
+      enableViolations: true
+      metricName: ETCD number of proposals applied
+      metricVersion: v1
+      queries:
+      - name: data
+        query: rate(etcd_server_proposals_applied_total[%v:])
+      unit: count
+    identifier: etcd_server_proposals_applied_total
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: start Additional Measurements
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: start
+      apiVersion: apps/v1
+      checkIfPodsAreUpdated: true
+      labelSelector: group = pod-scale
+      operationTimeout: 60m
+    identifier: ""
+    instances:
+    - identifier: WaitForRunningDeployments
+      params:
+        apiVersion: apps/v1
+        kind: Deployment
+  module:
+    path: ""
+    params: {}
+  name: Starting measurement for 'create objects'
+- phases:
+  - namespacerange:
+      min: 1
+      max: 100
+      basename: null
+    namespacelist: []
+    replicaspernamespace: 20
+    tuningset: UniformQPS
+    objectbundle:
+    - basename: pod-scale-deployment
+      objecttemplatepath: deployment.yaml
+      templatefillmap:
+        CpuRequest: 10m
+        DeploymentStrategy: RollingUpdate
+        Group: pod-scale
+        Image: registry.k8s.io/pause:3.9
+        MemoryRequest: 50M
+        Replicas: 100
+        deploymentLabel: start
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: create objects
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: gather
+      refreshInterval: 15s
+    identifier: ""
+    instances:
+    - identifier: WaitForRunningDeployments
+      params: {}
+  module:
+    path: ""
+    params: {}
+  name: Waiting for 'create objects' to be completed
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: start
+      apiVersion: apps/v1
+      checkIfPodsAreUpdated: true
+      labelSelector: group = pod-scale
+      operationTimeout: 60m
+    identifier: ""
+    instances:
+    - identifier: WaitForRunningDeployments
+      params:
+        apiVersion: apps/v1
+        kind: Deployment
+  module:
+    path: ""
+    params: {}
+  name: Starting measurement for 'delete objects'
+- phases:
+  - namespacerange:
+      min: 1
+      max: 100
+      basename: null
+    namespacelist: []
+    replicaspernamespace: 0
+    tuningset: RandomizedDeletionTimeLimited
+    objectbundle:
+    - basename: pod-scale-deployment
+      objecttemplatepath: deployment.yaml
+      templatefillmap:
+        CpuRequest: 10m
+        DeploymentStrategy: RollingUpdate
+        Group: pod-scale
+        Image: registry.k8s.io/pause:3.9
+        MemoryRequest: 50M
+        Replicas: 0
+        deploymentLabel: stop
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: delete objects
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: gather
+      refreshInterval: 15s
+    identifier: ""
+    instances:
+    - identifier: WaitForRunningDeployments
+      params: {}
+  module:
+    path: ""
+    params: {}
+  name: Waiting for 'delete objects' to be completed
+- phases: []
+  measurements:
+  - method: APIResponsivenessPrometheus
+    params:
+      action: gather
+      enableViolations: true
+      useSimpleLatencyQuery: true
+    identifier: APIResponsivenessPrometheus
+    instances: []
+  - method: PodStartupLatency
+    params:
+      action: gather
+      labelSelector: group = pod-scale
+      threshold: 90s
+    identifier: PodStartupLatency
+    instances: []
+  - method: InClusterNetworkLatency
+    params:
+      action: gather
+      checkProbesReadyTimeout: 15m
+      pingSleepDuration: 1s
+      replicasPerProbe: 52
+      threshold: 0s
+    identifier: InClusterNetworkLatency
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      dimensions:
+      - resource
+      metricName: Terminated Watches
+      metricVersion: v1
+      queries:
+      - name: Terminated watches
+        query: sum(increase(apiserver_terminated_watchers_total[%v:])) by (resource)
+      unit: count
+    identifier: TerminatedWatchesMetrics
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      enableViolations: true
+      metricName: Apiserver Average CPU Usage
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: quantile(0.99, avg_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      - name: Perc90
+        query: quantile(0.90, avg_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      - name: Perc50
+        query: quantile(0.50, avg_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      unit: cpu
+    identifier: ApiserverAvgCPUUsage
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      enableViolations: true
+      metricName: Apiserver Max CPU Usage
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: quantile(0.99, max_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      - name: Perc90
+        query: quantile(0.90, max_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      - name: Perc50
+        query: quantile(0.50, max_over_time(rate(process_cpu_seconds_total{endpoint="apiserver"}[1m])[%v:]))
+      unit: cpu
+    identifier: ApiserverMaxCPUUsage
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      enableViolations: true
+      metricName: Apiserver Avg Memory Usage
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: quantile(0.99, avg_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      - name: Perc90
+        query: quantile(0.90, avg_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      - name: Perc50
+        query: quantile(0.5, avg_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      unit: MB
+    identifier: ApiserverAvgMemUsage
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      enableViolations: true
+      metricName: Apiserver Max Memory Usage
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: quantile(0.99, max_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      - name: Perc90
+        query: quantile(0.90, max_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      - name: Perc50
+        query: quantile(0.5, max_over_time(process_resident_memory_bytes{endpoint="apiserver"}[%v:])
+          / 1024 / 1024)
+      unit: MB
+    identifier: ApiserverMaxMemUsage
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      enableViolations: true
+      metricName: Current API requests inflight
+      metricVersion: v1
+      queries:
+      - name: data
+        query: sum(rate(apiserver_current_inflight_requests[%v:]))
+      unit: count
+    identifier: apiserver_current_inflight_requests
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      dimensions:
+      - resource
+      enableViolations: true
+      metricName: Apiserver watch events total per resource
+      metricVersion: v1
+      queries:
+      - name: data
+        query: sum(rate(apiserver_watch_events_total[%v:])) by (resource)
+      unit: count
+    identifier: apiserver_watch_events_total
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      dimensions:
+      - resource
+      enableViolations: true
+      metricName: Api server watch duration seconds
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: histogram_quantile(0.99, sum(rate(apiserver_watch_duration_seconds_bucket[%v:]))
+          by (le, resource))
+      - name: Perc90
+        query: histogram_quantile(0.90, sum(rate(apiserver_watch_duration_seconds_bucket[%v:]))
+          by (le, resource))
+      - name: Perc50
+        query: histogram_quantile(0.50, sum(rate(apiserver_watch_duration_seconds_bucket[%v:]))
+          by (le, resource))
+      unit: s
+    identifier: apiserver_watch_duration_seconds_bucket
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      enableViolations: true
+      metricName: ETCD disk backend commit duration
+      metricVersion: v1
+      queries:
+      - name: P99
+        query: histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[%v:]))
+          by (le))
+      - name: P90
+        query: histogram_quantile(0.90, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[%v:]))
+          by (le))
+      - name: P50
+        query: histogram_quantile(0.50, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[%v:]))
+          by (le))
+      unit: rate
+    identifier: etcd_disk_backend_commit_duration_seconds
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      enableViolations: true
+      metricName: data
+      metricVersion: v1
+      queries:
+      - name: data
+        query: deriv(etcd_debugging_mvcc_db_total_size_in_bytes[5m])
+      unit: rate
+    identifier: etcd_debugging_mvcc_db_total_size_in_bytes
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      enableViolations: true
+      metricName: ETCD number of uncommited proposals rate change
+      metricVersion: v1
+      queries:
+      - name: data
+        query: deriv(etcd_server_proposals_pending[%v:])
+      unit: rate
+    identifier: etcd_server_proposals_pending
+    instances: []
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      dimensions:
+      - resource
+      enableViolations: true
+      metricName: ETCD number of proposals applied
+      metricVersion: v1
+      queries:
+      - name: data
+        query: rate(etcd_server_proposals_applied_total[%v:])
+      unit: count
+    identifier: etcd_server_proposals_applied_total
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: gather Additional Measurements
+tuningsets:
+- name: UniformQPS
+  initialdelay: 0
+  qpsload:
+    qps: 100
+  randomizedload: null
+  steppedload: null
+  timelimitedload: null
+  randomizedtimelimitedload: null
+  parallelismlimitedload: null
+  globalqpsload: null
+  poissonload: null
+- name: RandomizedSaturationTimeLimited
+  initialdelay: 0
+  qpsload: null
+  randomizedload: null
+  steppedload: null
+  timelimitedload: null
+  randomizedtimelimitedload:
+    timelimit: 600000000000
+  parallelismlimitedload: null
+  globalqpsload: null
+  poissonload: null
+- name: RandomizedDeletionTimeLimited
+  initialdelay: 0
+  qpsload: null
+  randomizedload: null
+  steppedload: null
+  timelimitedload: null
+  randomizedtimelimitedload:
+    timelimit: 600000000000
+  parallelismlimitedload: null
+  globalqpsload: null
+  poissonload: null
+chaosmonkey:
+  nodefailure: null
+  excludednodes: {}
